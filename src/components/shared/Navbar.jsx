@@ -9,8 +9,8 @@ export default function Navbar() {
     // the signed-in user is loaded once by MainLayout and shared through Redux
     const { token, user: me } = useSelector((state) => state.auth);
 
-    const navLinkClass = ({ isActive, to }) =>
-        (isActive || window.location.pathname.startsWith("/"))
+    const navLinkClass = ({ isActive }) =>
+        isActive
             ? "text-primary font-semibold"
             : "text-base-content/80 hover:text-primary";
 
@@ -36,7 +36,7 @@ export default function Navbar() {
                 {/* CENTER: Desktop menu */}
                 <div className="navbar-center hidden md:flex">
                     <ul className="menu menu-horizontal gap-1">
-                        <li><NavLink className={navLinkClass} to="/">Home</NavLink></li>
+                        <li><NavLink className={navLinkClass} to="/" end>Home</NavLink></li>
                         <li><NavLink className={navLinkClass} to="/courses">Courses</NavLink></li>
 
                         {/* ✅ Dashboard only when logged in */}
@@ -93,7 +93,6 @@ export default function Navbar() {
                                         Dashboard
                                     </Link>
                                 </li>
-                                <li><Link to="/profile">Profile</Link></li>
                                 <li>
                                     <button onClick={handleLogout} className="text-red-500">
                                         Logout
@@ -118,10 +117,10 @@ export default function Navbar() {
                             className="
                 menu menu-sm dropdown-content mt-3 p-3 shadow
                 bg-base-100 rounded-box w-56 border border-base-300
-                items-center text-center max-h-32 overflow-hidden
+                items-center text-center
               "
                         >
-                            <li><NavLink className={navLinkClass} to="/">Home</NavLink></li>
+                            <li><NavLink className={navLinkClass} to="/" end>Home</NavLink></li>
                             <li><NavLink className={navLinkClass} to="/courses">Courses</NavLink></li>
 
                             {/* ✅ Dashboard only when logged in */}
@@ -166,7 +165,6 @@ export default function Navbar() {
                                         </Link>
                                     </li>
 
-                                    <li className="w-full"><Link to="/profile">Profile</Link></li>
                                     <li className="w-full">
                                         <button onClick={handleLogout} className="btn btn-ghost btn-sm w-full text-red-500">
                                             Logout
