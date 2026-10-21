@@ -1,9 +1,21 @@
 <!doctype html>
-<html lang="en" data-theme="misun">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // apply the saved / system theme before the first paint (same rule as ThemeContext)
+      (function () {
+        try {
+          var saved = localStorage.getItem("theme");
+          var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.setAttribute("data-theme", saved || (dark ? "dark" : "light"));
+        } catch (e) {
+          // storage unavailable: keep the default light theme
+        }
+      })();
+    </script>
     <title>course-master-frontend</title>
   </head>
   <body>
