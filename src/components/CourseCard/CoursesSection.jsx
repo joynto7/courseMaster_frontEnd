@@ -6,6 +6,16 @@ import CoursesFilters from "./CoursesFilters";
 import CoursesGrid from "./CoursesGrid";
 import CoursesPagination from "./CoursesPagination";
 
+// value that only updates after the user stops typing for `delay` ms
+function useDebouncedValue(value, delay) {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const timer = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(timer);
+    }, [value, delay]);
+    return debounced;
+}
+
 export default function CoursesSection() {
     const { user } = useSelector((state) => state.auth);
     const [courses, setCourses] = useState([]);
@@ -17,49 +27,62 @@ export default function CoursesSection() {
     const [page, setPage] = useState(1);
     const [limit] = useState(8);
     const [search, setSearch] = useState("");
+    const [submittedSearch, setSubmittedSearch] = useState("");
     const [sort, setSort] = useState("");
     const [category, setCategory] = useState("");
     const [tags, setTags] = useState("");
 
-    const fetchCourses = async () => {
-        try {
-            setLoading(true);
-            setError(null);
+    // typing in the text filters should not send a request per keystroke
+    const debouncedCategory = useDebouncedValue(category.trim(), 400);
+    const debouncedTags = useDebouncedValue(tags.trim(), 400);
 
-            const params = {
-                page,
-                limit,
-                search: search || undefined,
-                sort: sort || undefined,
-                category: category || undefined,
-                tags: tags || undefined,
-            };
-
-            const res = await getCourses(params);
-            setCourses(res.data.courses || []);
-            setTotalPages(res.data.totalPages || 1);
-        } catch (err) {
-            setError("Failed to load courses");
-        } finally {
-            setLoading(false);
-        }
-    };
+    // go back to page 1 whenever the active filters change (before fetching)
+    const filtersKey = [submittedSearch, sort, debouncedCategory, debouncedTags].join("|");
+    const [prevFiltersKey, setPrevFiltersKey] = useState(filtersKey);
+    if (filtersKey !== prevFiltersKey) {
+        setPrevFiltersKey(filtersKey);
+        setPage(1);
+    }
 
     useEffect(() => {
+        // ignore responses that arrive after newer filters were applied
+        let ignore = false;
+
+        const fetchCourses = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                const params = {
+                    page,
+                    limit,
+                    search: submittedSearch || undefined,
+                    sort: sort || undefined,
+                    category: debouncedCategory || undefined,
+                    tags: debouncedTags || undefined,
+                };
+
+                const res = await getCourses(params);
+                if (ignore) return;
+                setCourses(res.data.courses || []);
+                setTotalPages(res.data.totalPages || 1);
+            } catch (err) {
+                if (!ignore) setError(err.response?.data?.message || "Failed to load courses");
+            } finally {
+                if (!ignore) setLoading(false);
+            }
+        };
+
         fetchCourses();
-        // eslint-disable-next-line
-    }, [page, sort, category, tags]);
+        return () => {
+            ignore = true;
+        };
+    }, [page, limit, submittedSearch, sort, debouncedCategory, debouncedTags]);
 
     const onSearchSubmit = (e) => {
         e.preventDefault();
-        setPage(1);
-        fetchCourses();
+        setSubmittedSearch(search.trim());
     };
-
-    // reset page when filters change
-    useEffect(() => {
-        setPage(1);
-    }, [sort, category, tags]);
 
     return (
         <div className="space-y-6">
