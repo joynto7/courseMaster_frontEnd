@@ -67,6 +67,7 @@ export default function Register() {
                                 onChange={handleChange}
                                 placeholder="Enter your full name"
                                 className="input input-bordered w-full focus:input-primary"
+                                minLength={2}
                                 required
                             />
                         </div>
@@ -95,8 +96,12 @@ export default function Register() {
                                 onChange={handleChange}
                                 placeholder="Create a password"
                                 className="input input-bordered w-full focus:input-primary"
+                                minLength={6}
                                 required
                             />
+                            <label className="label py-1">
+                                <span className="label-text-alt text-xs opacity-70">At least 6 characters</span>
+                            </label>
                         </div>
 
                         {/* Admin Registration Key (Optional) */}
