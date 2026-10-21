@@ -133,9 +133,10 @@ export default function AdminOverview() {
     ];
 
     // Enrollment by course (top 5)
-    const courseEnrollmentData = analytics?.topCourses?.slice(0, 5).map((course) => ({
-        name: course.courseTitle?.substring(0, 15) || "Unknown",
-        enrollments: course.count,
+    // GET /admin/analytics returns enrollmentsByCourse: [{ courseName, enrollments }]
+    const courseEnrollmentData = analytics?.enrollmentsByCourse?.slice(0, 5).map((course) => ({
+        name: course.courseName?.substring(0, 15) || "Unknown",
+        enrollments: course.enrollments,
     })) || [];
 
     return (
@@ -241,8 +242,6 @@ export default function AdminOverview() {
                                         data={assignmentStatusData}
                                         cx="50%"
                                         cy="50%"
-                                        labelLine={false}
-                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                                         outerRadius={80}
                                         fill="#8884d8"
                                         dataKey="value"
@@ -258,7 +257,8 @@ export default function AdminOverview() {
                                             borderRadius: "8px",
                                         }}
                                     />
-                                    <Legend />
+                                    {/* counts live in the legend: outside slice labels were clipped by the card */}
+                                    <Legend formatter={(value, entry) => `${value} (${entry.payload.value})`} />
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (

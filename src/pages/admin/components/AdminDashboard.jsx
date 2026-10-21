@@ -17,7 +17,7 @@ export default function AdminDashboard() {
                     <AdminSidebar />
                 </div>
 
-                {/* Mobile drawer toggle button */}
+                {/* Mobile drawer toggle button (in normal flow, so it never covers the page content) */}
                 <div className="lg:hidden">
                     <AdminSidebar />
                 </div>
