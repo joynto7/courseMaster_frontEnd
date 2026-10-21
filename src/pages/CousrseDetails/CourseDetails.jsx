@@ -4,9 +4,9 @@ import { useDispatch, useSelector } from "react-redux";
 import {
     fetchCourseById,
     clearCurrentCourse,
+    clearError as clearCourseError,
 } from "../../store/slices/coursesSlice";
-import { enrollCourseAsync, clearSuccess } from "../../store/slices/enrollmentSlice";
-import { getMeAsync } from "../../store/slices/authSlice";
+import { enrollCourseAsync, clearSuccess, clearError as clearEnrollError } from "../../store/slices/enrollmentSlice";
 
 export default function CourseDetails() {
     const { id } = useParams();
@@ -15,47 +15,42 @@ export default function CourseDetails() {
 
     const { currentCourse, detailLoading, error: courseError } = useSelector((state) => state.courses);
     const { enrolling, error: enrollError, success, enrollments: myEnrollments } = useSelector((state) => state.enrollment);
-    const { user, token, isAuthenticated } = useSelector((state) => state.auth);
-    const [selectedBatchId, setSelectedBatchId] = useState(null);
+    // the user is loaded once by MainLayout
+    const { user, token } = useSelector((state) => state.auth);
+    // a batch selection only applies to the course it was made on
+    const [batchSelection, setBatchSelection] = useState({ courseId: id, batchId: null });
+    const selectedBatchId = batchSelection.courseId === id ? batchSelection.batchId : null;
+    const selectBatch = (batchId) => setBatchSelection({ courseId: id, batchId });
 
     useEffect(() => {
         dispatch(fetchCourseById(id));
-        return () => dispatch(clearCurrentCourse());
+        // an enrollment error belongs to the course it happened on
+        dispatch(clearEnrollError());
+        return () => {
+            dispatch(clearCurrentCourse());
+            dispatch(clearCourseError());
+        };
     }, [id, dispatch]);
 
-    // Load user if token exists but user is not loaded
-    useEffect(() => {
-        if (token && !user) {
-            dispatch(getMeAsync());
-        }
-    }, [token, user, dispatch]);
+    // ignore a course left in the store by another page until this one is loaded
+    const course = currentCourse?._id === id ? currentCourse : null;
 
-    const isCreator = user && currentCourse && user._id === currentCourse.instructorId;
-    const isAdmin = user && user.role === "admin";
-    const cannotEnroll = isAdmin || isCreator;
+    // admins manage courses instead of enrolling
+    const isAdmin = user?.role === "admin";
 
-    const alreadyEnrolled = !!myEnrollments?.find((e) => e.course?._id === id);
+    // the course is an object in fetched enrollments and an id right after enrolling
+    const alreadyEnrolled = !!myEnrollments?.some((e) => (e.course?._id ?? e.course) === id);
 
-    const handleEnroll = async () => {
-        // if user object not present but token exists, attempt to fetch profile
-        if (!user && token) {
-            try {
-                await dispatch(getMeAsync()).unwrap();
-            } catch (err) {
-                // ignore, will redirect to login below
-            }
-        }
-
-        if (!user && !isAuthenticated) {
+    const handleEnroll = () => {
+        if (!token) {
             navigate("/login");
             return;
         }
 
-        if (cannotEnroll) return;
+        // profile still loading, or an admin
+        if (!user || isAdmin) return;
 
-        // Note: Since batches don't have _id in the model, we pass null
-        // The backend can be updated later to handle batch references properly
-        dispatch(enrollCourseAsync({ courseId: id, batchId: selectedBatchId !== null ? selectedBatchId.toString() : null }));
+        dispatch(enrollCourseAsync({ courseId: id, batchId: selectedBatchId }));
     };
 
     useEffect(() => {
@@ -68,7 +63,8 @@ export default function CourseDetails() {
         }
     }, [success, navigate, dispatch]);
 
-    if (detailLoading) {
+    // also covers the first render, before the request has started
+    if (detailLoading || (!course && !courseError)) {
         return (
             <div className="flex justify-center items-center min-h-[60vh]">
                 <span className="loading loading-spinner loading-lg"></span>
@@ -76,15 +72,13 @@ export default function CourseDetails() {
         );
     }
 
-    if (courseError || !currentCourse) {
+    if (courseError || !course) {
         return (
             <div className="alert alert-error">
                 <span>{courseError || "Course not found"}</span>
             </div>
         );
     }
-
-    const course = currentCourse;
 
     return (
         <div className="space-y-4 sm:space-y-6">
@@ -113,7 +107,7 @@ export default function CourseDetails() {
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text'
-                        }}>৳ {course.price * 100}</p>
+                        }}>৳ {course.price?.toLocaleString()}</p>
 
                         <div>
                             {isAdmin ? (
@@ -123,12 +117,6 @@ export default function CourseDetails() {
                                 >
                                     📚 Manage Course
                                 </Link>
-                            ) : cannotEnroll ? (
-                                <div className="mb-2">
-                                    <div className="alert alert-info">
-                                        <span>Course creators cannot enroll in their own courses.</span>
-                                    </div>
-                                </div>
                             ) : success ? (
                                 <div className="alert alert-success">
                                     <span>{success}</span>
@@ -255,14 +243,13 @@ export default function CourseDetails() {
                     <div className="card-body">
                         <h2 className="page-heading-h2 mb-4">Available Batches</h2>
                         <div className="space-y-2">
-                            {course.batches.map((batch, idx) => {
-                                // Use index as batch identifier since batches don't have _id
-                                const batchIndex = idx;
-                                const isSelected = selectedBatchId === batchIndex;
+                            {course.batches.map((batch) => {
+                                // every batch sub-document has its own _id, which the API expects
+                                const isSelected = selectedBatchId === batch._id;
                                 return (
                                     <div
-                                        key={idx}
-                                        onClick={() => setSelectedBatchId(isSelected ? null : batchIndex)}
+                                        key={batch._id}
+                                        onClick={() => selectBatch(isSelected ? null : batch._id)}
                                         className={`flex justify-between items-center p-3 rounded cursor-pointer transition ${isSelected
                                             ? "bg-primary text-primary-content border-2 border-primary"
                                             : "bg-base-200 hover:bg-base-300 border-2 border-transparent"
@@ -272,7 +259,7 @@ export default function CourseDetails() {
                                             <input
                                                 type="radio"
                                                 checked={isSelected}
-                                                onChange={() => setSelectedBatchId(isSelected ? null : batchIndex)}
+                                                onChange={() => selectBatch(isSelected ? null : batch._id)}
                                                 className="radio radio-sm"
                                                 onClick={(e) => e.stopPropagation()}
                                             />
