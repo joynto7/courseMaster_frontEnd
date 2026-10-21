@@ -169,7 +169,7 @@ export default function StudentDashboard() {
                 </div>
             )}
 
-            {enrollments.length === 0 ? (
+            {!enrollments?.length ? (
                 <div className="card bg-base-200">
                     <div className="card-body text-center py-12">
                         <h2 className="card-title justify-center">No courses enrolled yet</h2>
@@ -258,7 +258,7 @@ export default function StudentDashboard() {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-2xl sm:text-3xl font-bold text-primary">
-                                                    {Math.round((enrollment.progress?.completedLessons?.length / (stats?.courseData?.syllabus?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0))) * 100)}%
+                                                    {enrollment.progress?.percent || 0}%
                                                 </p>
                                             </div>
                                         </div>

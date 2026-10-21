@@ -81,8 +81,8 @@ const enrollmentSlice = createSlice({
             })
             .addCase(fetchMyEnrollments.fulfilled, (state, action) => {
                 state.loading = false;
-                // Code-6 bug: action.payload is the array, but trying to access .data makes it undefined
-                state.enrollments = action.payload.data;
+                // the thunk already returns res.data (the enrollments array)
+                state.enrollments = action.payload || [];
             })
             .addCase(fetchMyEnrollments.rejected, (state, action) => {
                 state.loading = false;
@@ -97,7 +97,8 @@ const enrollmentSlice = createSlice({
                 if (!updated) return;
                 const idx = state.enrollments.findIndex((e) => e._id === updated._id);
                 if (idx !== -1) {
-                    state.enrollments[idx] = updated;
+                    // the API returns the course as an id; keep the populated course object
+                    state.enrollments[idx].progress = updated.progress;
                 } else {
                     // safe fallback
                     state.enrollments.push(updated);
