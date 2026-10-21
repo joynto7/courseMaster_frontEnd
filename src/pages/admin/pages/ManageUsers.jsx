@@ -11,22 +11,8 @@ export default function ManageUsers() {
     const [actionLoading, setActionLoading] = useState(null); // userId that's being acted upon
     const [showActions, setShowActions] = useState(null); // userId for which actions menu is shown
 
+    // signed-in admin, loaded once by MainLayout
     const { user } = useSelector((state) => state.auth);
-    const [currentUser, setCurrentUser] = useState(null);
-
-    useEffect(() => {
-        // Get current user info
-        const loadCurrentUser = async () => {
-            try {
-                const { getMe } = await import("../../../services/auth.api");
-                const res = await getMe();
-                setCurrentUser(res.data);
-            } catch (err) {
-                console.error("Failed to load current user:", err);
-            }
-        };
-        loadCurrentUser();
-    }, []);
 
     const fetchUsers = async () => {
         try {
@@ -152,7 +138,7 @@ export default function ManageUsers() {
     };
 
     const isCurrentUser = (userId) => {
-        const currentUserId = currentUser?._id || currentUser?.id || user?._id || user?.id;
+        const currentUserId = user?._id || user?.id;
         return currentUserId === userId;
     };
 

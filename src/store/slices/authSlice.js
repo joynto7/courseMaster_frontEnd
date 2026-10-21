@@ -40,6 +40,10 @@ export const getMeAsync = createAsyncThunk(
             clearToken();
             return rejectWithValue(err.response?.data?.message || "Failed to load user");
         }
+    },
+    {
+        // one profile request at a time (several components may ask for it)
+        condition: (_, { getState }) => !getState().auth.meLoading,
     }
 );
 
@@ -49,6 +53,7 @@ const authSlice = createSlice({
         user: null,
         token: getToken() || null,
         loading: false,
+        meLoading: false,
         error: null,
         isAuthenticated: !!getToken(),
     },
@@ -100,15 +105,15 @@ const authSlice = createSlice({
             })
             // GetMe
             .addCase(getMeAsync.pending, (state) => {
-                state.loading = true;
+                state.meLoading = true;
             })
             .addCase(getMeAsync.fulfilled, (state, action) => {
-                state.loading = false;
+                state.meLoading = false;
                 state.user = action.payload;
                 state.isAuthenticated = true;
             })
             .addCase(getMeAsync.rejected, (state) => {
-                state.loading = false;
+                state.meLoading = false;
                 state.user = null;
                 state.token = null;
                 state.isAuthenticated = false;

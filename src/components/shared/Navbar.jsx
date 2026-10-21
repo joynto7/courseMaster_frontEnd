@@ -1,14 +1,13 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { Link, NavLink } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
-import { getToken, clearToken } from "../../utils/auth";
-import { getMe } from "../../services/auth.api";
+import { logout } from "../../store/slices/authSlice";
 
 export default function Navbar() {
-    const navigate = useNavigate();
-    const token = getToken();
-    const [me, setMe] = useState(null);
+    const dispatch = useDispatch();
+    // the signed-in user is loaded once by MainLayout and shared through Redux
+    const { token, user: me } = useSelector((state) => state.auth);
 
     const navLinkClass = ({ isActive, to }) =>
         (isActive || window.location.pathname.startsWith("/"))
@@ -16,25 +15,10 @@ export default function Navbar() {
             : "text-base-content/80 hover:text-primary";
 
     const handleLogout = () => {
-        clearToken();
-        setMe(null);
-        navigate("/");
-        window.location.reload();
+        dispatch(logout());
+        // full reload so no data from this session stays in memory
+        window.location.assign("/");
     };
-
-    useEffect(() => {
-        const loadMe = async () => {
-            if (!token) return setMe(null);
-            try {
-                const res = await getMe();
-                setMe(res.data);
-            } catch {
-                clearToken();
-                setMe(null);
-            }
-        };
-        loadMe();
-    }, [token]);
 
     const initials = me?.name
         ? me.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
@@ -55,8 +39,8 @@ export default function Navbar() {
                         <li><NavLink className={navLinkClass} to="/">Home</NavLink></li>
                         <li><NavLink className={navLinkClass} to="/courses">Courses</NavLink></li>
 
-                        {/* ✅ Dashboard when logged in OR when dev_bypass is active */}
-                        {(token && me) ? (
+                        {/* ✅ Dashboard only when logged in */}
+                        {token && me && (
                             <li>
                                 <NavLink
                                     className={navLinkClass}
@@ -65,12 +49,7 @@ export default function Navbar() {
                                     Dashboard
                                 </NavLink>
                             </li>
-                        ) : (localStorage.getItem("dev_bypass") === "true") ? (
-                            <>
-                                <li><NavLink className={navLinkClass} to="/student">Student Portal</NavLink></li>
-                                <li><NavLink className={navLinkClass} to="/admin">Admin Portal</NavLink></li>
-                            </>
-                        ) : null}
+                        )}
                     </ul>
                 </div>
 

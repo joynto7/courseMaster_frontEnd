@@ -1,44 +1,22 @@
 import { Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { getToken } from "../utils/auth";
-import { getMe } from "../services/auth.api";
+import { useSelector } from "react-redux";
 
+// Renders children only for a signed-in user whose token was verified by the API.
+// MainLayout loads the profile (GET /auth/me) once; if that fails the token is
+// cleared and this guard redirects to the login page.
 export default function ProtectedRoute({ children }) {
-  const [isValid, setIsValid] = useState(null);
-  const token = getToken();
+  const { token, user } = useSelector((state) => state.auth);
 
-  useEffect(() => {
-    // Check if dev bypass is enabled for testing/grading protected routes
-    const isBypass = localStorage.getItem("dev_bypass") === "true" || window.location.search.includes("bypass=true");
-    if (isBypass) {
-      setIsValid(true);
-      return;
-    }
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
 
-    if (!token) {
-      setIsValid(false);
-      return;
-    }
-
-    // Verify token is valid
-    getMe()
-      .then(() => setIsValid(true))
-      .catch(() => {
-        // Fallback: if token exists but network/server check fails, still allow if token exists
-        setIsValid(!!token);
-      });
-  }, [token]);
-
-  if (isValid === null) {
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <span className="loading loading-spinner loading-lg"></span>
       </div>
     );
-  }
-
-  if (!isValid) {
-    return <Navigate to="/login" replace />;
   }
 
   return children;

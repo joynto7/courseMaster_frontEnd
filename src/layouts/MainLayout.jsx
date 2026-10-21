@@ -8,19 +8,21 @@ import { fetchMyEnrollments } from "../store/slices/enrollmentSlice";
 
 export default function MainLayout() {
     const dispatch = useDispatch();
-    const { token, isAuthenticated } = useSelector((state) => state.auth);
+    const { token, user } = useSelector((state) => state.auth);
 
+    // load the signed-in user once (also after a page refresh)
     useEffect(() => {
-        if (token && !isAuthenticated) {
+        if (token && !user) {
             dispatch(getMeAsync());
         }
-    }, [token, isAuthenticated, dispatch]);
+    }, [token, user, dispatch]);
 
+    // only students have enrollments
     useEffect(() => {
-        if (isAuthenticated) {
+        if (user?.role === "student") {
             dispatch(fetchMyEnrollments());
         }
-    }, [isAuthenticated, dispatch]);
+    }, [user?.role, dispatch]);
 
     return (
         <div className="min-h-screen flex flex-col">
