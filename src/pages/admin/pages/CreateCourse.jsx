@@ -65,11 +65,11 @@ export default function CreateCourse() {
             syllabus: form.syllabus,
         };
 
-        dispatch(createCourseAsync(payload)).then((result) => {
-            if (!result.payload?.message && !error) {
-                setTimeout(() => navigate("/admin/courses"), 1500);
-            }
-        });
+        const result = await dispatch(createCourseAsync(payload));
+        // on failure stay on the form (the error is shown) so nothing typed is lost
+        if (createCourseAsync.fulfilled.match(result)) {
+            setTimeout(() => navigate("/admin/courses"), 1500);
+        }
     };
 
     if (success) {

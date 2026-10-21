@@ -38,8 +38,10 @@ export default function EditCourse() {
                 price: currentCourse.price || 0,
                 category: currentCourse.category || "",
                 tags: (currentCourse.tags || []).join(", "),
-                batches: currentCourse.batches || [],
-                syllabus: currentCourse.syllabus || [],
+                // Redux state is frozen; the editors below update nested objects,
+                // so work on a deep copy
+                batches: structuredClone(currentCourse.batches || []),
+                syllabus: structuredClone(currentCourse.syllabus || []),
             });
         }
     }, [currentCourse]);
