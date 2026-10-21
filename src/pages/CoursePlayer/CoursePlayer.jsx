@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCourseById } from "../../store/slices/coursesSlice";
 import { completeLessonAsync, fetchMyEnrollments } from "../../store/slices/enrollmentSlice";
@@ -50,24 +50,37 @@ export default function CoursePlayer() {
     const [enrollment, setEnrollment] = useState(null);
     const [selectedModule, setSelectedModule] = useState(0);
     const [selectedLesson, setSelectedLesson] = useState(0);
-    const [loading, setLoading] = useState(true);
+    const [loadedCourseId, setLoadedCourseId] = useState(null);
+    const loading = loadedCourseId !== id;
 
     const { currentCourse } = useSelector((state) => state.courses);
+    const { user } = useSelector((state) => state.auth);
 
     useEffect(() => {
-        dispatch(fetchCourseById(id)).then(() => setLoading(false));
+        let ignore = false;
 
-        const fetchEnrollment = async () => {
-            try {
-                const res = await getMyEnrollments();
-                const userEnroll = res.data.find((e) => e.course?._id === id);
-                setEnrollment(userEnroll);
-            } catch (err) {
-                console.error("Failed to load enrollment:", err);
-            }
+        // wait for both the course and the enrollment before deciding what to show
+        Promise.all([
+            dispatch(fetchCourseById(id)),
+            getMyEnrollments()
+                .then((res) => res.data.find((e) => e.course?._id === id) || null)
+                .catch((err) => {
+                    console.error("Failed to load enrollment:", err);
+                    return null;
+                }),
+        ]).then(([, userEnroll]) => {
+            if (ignore) return;
+            setEnrollment(userEnroll);
+            setLoadedCourseId(id);
+        });
+
+        return () => {
+            ignore = true;
         };
-        fetchEnrollment();
     }, [id, dispatch]);
+
+    const isLessonCompleted = (lessonId) =>
+        !!enrollment?.progress?.completedLessons?.some((done) => String(done) === String(lessonId));
 
     const handleMarkComplete = async () => {
         if (!enrollment) return;
@@ -111,6 +124,23 @@ export default function CoursePlayer() {
         return <div className="alert alert-error">Course not found</div>;
     }
 
+    // lessons are only for enrolled students (admins may preview)
+    if (!enrollment && user?.role !== "admin") {
+        return (
+            <div className="card bg-base-100 border border-base-300 shadow max-w-xl mx-auto mt-8">
+                <div className="card-body text-center">
+                    <h2 className="card-title justify-center">You are not enrolled in this course</h2>
+                    <p className="text-base-content/70">
+                        Enroll to watch the lessons, take quizzes and submit assignments.
+                    </p>
+                    <Link to={`/courses/${id}`} className="btn btn-primary mt-4 w-fit mx-auto">
+                        View course details
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
     const module = currentCourse.syllabus?.[selectedModule];
     const lesson = module?.lessons?.[selectedLesson];
 
@@ -139,9 +169,9 @@ export default function CoursePlayer() {
                         <div className="card bg-base-100 shadow">
                             <div className="card-body p-3 sm:p-6">
                                 <h3 className="card-title text-base sm:text-lg md:text-xl break-words">{lesson.title}</h3>
-                                <div className="bg-base-300 rounded overflow-hidden mt-2 sm:mt-4">
+                                <div className="aspect-video bg-base-300 rounded overflow-hidden mt-2 sm:mt-4">
                                     <iframe
-                                        style={{ height: '700px', width: '300px' }}
+                                        className="w-full h-full"
                                         src={convertToEmbedUrl(lesson.videoUrl)}
                                         title={lesson.title}
                                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -152,10 +182,10 @@ export default function CoursePlayer() {
 
                                 <button
                                     onClick={handleMarkComplete}
-                                    disabled={!!enrollment?.progress?.completedLessons?.includes(lesson)}
-                                    className={`btn btn-sm sm:btn-md ${enrollment?.progress?.completedLessons?.includes(lesson) ? "btn-disabled" : "btn-success"} mt-3 sm:mt-4 w-full sm:w-auto`}
+                                    disabled={isLessonCompleted(lesson._id)}
+                                    className={`btn btn-sm sm:btn-md ${isLessonCompleted(lesson._id) ? "btn-disabled" : "btn-success"} mt-3 sm:mt-4 w-full sm:w-auto`}
                                 >
-                                    {enrollment?.progress?.completedLessons?.includes(lesson) ? "Completed ✓" : "✓ Mark as Complete"}
+                                    {isLessonCompleted(lesson._id) ? "Completed ✓" : "✓ Mark as Complete"}
                                 </button>
                             </div>
                         </div>
@@ -187,8 +217,10 @@ export default function CoursePlayer() {
                         </div>
                     )}
 
+                    {/* key: fresh state for every lesson (previous answers must not carry over) */}
                     {lesson?.assignmentPrompt && (
                         <AssignmentSubmission
+                            key={lesson._id}
                             courseId={id}
                             lessonId={lesson._id}
                             prompt={lesson.assignmentPrompt}
@@ -199,6 +231,7 @@ export default function CoursePlayer() {
 
                     {lesson?.quiz && lesson.quiz.length > 0 && (
                         <QuizInterface
+                            key={lesson._id}
                             quiz={lesson.quiz}
                             courseId={id}
                             lessonId={lesson._id}
@@ -234,7 +267,7 @@ export default function CoursePlayer() {
                                                 const hasAssignment = !!les.assignmentPrompt;
                                                 const hasQuiz = les.quiz && les.quiz.length > 0;
                                                 const hasLiveClass = !!les.liveClassLink;
-                                                const isCompleted = enrollment?.progress?.completedLessons?.includes(les._id);
+                                                const isCompleted = isLessonCompleted(les._id);
                                                 
                                                 // Check if live class is upcoming
                                                 const isUpcoming = hasLiveClass && les.liveClassDate && new Date(les.liveClassDate) > new Date();
@@ -768,7 +801,7 @@ function QuizInterface({ quiz, courseId, lessonId, enrollment, onComplete }) {
                                         >
                                             <input
                                                 type="radio"
-                                                name="quiz-option"
+                                                name={`quiz-${lessonId}-q${qIdx}`}
                                                 checked={answers[qIdx] === oIdx}
                                                 onChange={() => {
                                                     if (!loading) {
